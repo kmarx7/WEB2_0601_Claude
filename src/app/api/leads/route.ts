@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendLeadToSheet } from "@/lib/googleSheets";
+import { appendLeadToSheet, checkDuplicatePhone } from "@/lib/googleSheets";
+import { sendLeadNotification } from "@/lib/email";
 import type { LeadApiRequest, LeadApiResponse } from "@/types/lead";
 
 const PHONE_REGEX = /^01[016789]-?\d{3,4}-?\d{4}$/;
@@ -40,13 +41,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<LeadApiRespon
     if (body.productOrClass.trim().length > 100) {
       return NextResponse.json({ success: false, message: "관심 제품/수업명은 100자 이내로 입력해주세요." }, { status: 400 });
     }
-
-    // Required consent validation
     if (!body.privacyRequiredConsent) {
       return NextResponse.json({ success: false, message: "개인정보 수집·이용에 동의해주세요." }, { status: 400 });
     }
-
-    // Optional field validation
     if (body.email && body.email.trim().length > 0 && !validateEmail(body.email)) {
       return NextResponse.json({ success: false, message: "올바른 이메일 형식을 입력해주세요." }, { status: 400 });
     }
@@ -54,8 +51,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<LeadApiRespon
       return NextResponse.json({ success: false, message: "문의 내용은 1000자 이내로 입력해주세요." }, { status: 400 });
     }
 
+    // 전화번호 중복 검사
+    const isDuplicate = await checkDuplicatePhone(body.phone.trim());
+    if (isDuplicate) {
+      return NextResponse.json(
+        { success: false, message: "이미 등록된 휴대전화번호입니다. 확인 후 안내드리겠습니다." },
+        { status: 409 }
+      );
+    }
+
+    const timestamp = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+
     await appendLeadToSheet({
-      timestamp: new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }),
+      timestamp,
       name: body.name.trim(),
       phone: body.phone.trim(),
       email: body.email?.trim() ?? "",
@@ -67,6 +75,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<LeadApiRespon
       marketing_consent: body.marketingConsent ? "Y" : "N",
       source: "web",
     });
+
+    // 관리자 이메일 알림 (실패해도 제출은 성공 처리)
+    sendLeadNotification({
+      name: body.name.trim(),
+      phone: body.phone.trim(),
+      email: body.email?.trim() ?? "",
+      productOrClass: body.productOrClass.trim(),
+      contactMethod: body.contactMethod?.trim() ?? "",
+      message: body.message?.trim() ?? "",
+      timestamp,
+      marketingConsent: body.marketingConsent,
+    }).catch((err) => console.error("[email notification] failed:", err));
 
     return NextResponse.json({ success: true });
   } catch (error) {
