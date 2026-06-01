@@ -56,7 +56,7 @@ export function LeadForm() {
       next.email = "올바른 이메일 형식을 입력해주세요.";
     }
 
-    if (form.message.length > 1000) next.message = "1000자 이내로 입력해주세요.";
+    if (form.message.length > 300) next.message = "300자 이내로 입력해주세요.";
 
     if (!form.privacyRequiredConsent) {
       next.privacyRequiredConsent = "개인정보 수집·이용에 동의해주세요.";
@@ -253,7 +253,7 @@ export function LeadForm() {
             name="message"
             placeholder="궁금한 점이나 요청 사항을 자유롭게 작성해주세요."
             rows={4}
-            maxLength={1000}
+            maxLength={300}
             value={form.message}
             onChange={(e) => set("message", e.target.value)}
             error={!!errors.message}

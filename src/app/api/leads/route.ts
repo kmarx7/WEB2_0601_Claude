@@ -47,8 +47,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<LeadApiRespon
     if (body.email && body.email.trim().length > 0 && !validateEmail(body.email)) {
       return NextResponse.json({ success: false, message: "올바른 이메일 형식을 입력해주세요." }, { status: 400 });
     }
-    if (body.message && body.message.length > 1000) {
-      return NextResponse.json({ success: false, message: "문의 내용은 1000자 이내로 입력해주세요." }, { status: 400 });
+    if (body.message && body.message.length > 300) {
+      return NextResponse.json({ success: false, message: "문의 내용은 300자 이내로 입력해주세요." }, { status: 400 });
     }
 
     // 전화번호 중복 검사
