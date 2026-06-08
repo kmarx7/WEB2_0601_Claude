@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ROOMTINE — 루틴이 쌓이면, 방이 완성된다</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ivory: #F5EFE0;
+    --sage: #8BAF8E;
+    --terra: #C97B5A;
+    --lavender: #B8A9C9;
+    --charcoal: #3D3530;
+    --ivory-dark: #EAE0CC;
+    --terra-light: #E8977A;
+    --shadow: rgba(61,53,48,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--ivory);
+    color: var(--charcoal);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--charcoal);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--ivory);
+    letter-spacing: 1px;
+  }
+  .logo span { color: var(--terra-light); }
+  .coin-badge {
+    background: var(--terra);
+    color: var(--ivory);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 8px rgba(201,123,90,0.4);
+    transition: transform 0.15s;
+  }
+  .coin-badge.pop { transform: scale(1.2); }
+
+  /* ── Nav tabs ── */
+  .nav {
+    display: flex;
+    background: var(--charcoal);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .nav-btn {
+    flex: 1;
+    padding: 10px 4px 8px;
+    background: none;
+    border: none;
+    color: rgba(245,239,224,0.5);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.2s;
+  }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-btn.active { color: var(--terra-light); }
+
+  /* ── Screens ── */
+  .screen { display: none; padding: 0 0 80px; }
+  .screen.active { display: block; }
+
+  /* ── Room Screen ── */
+  #room-screen { padding-bottom: 80px; }
+
+  .time-bar {
+    padding: 10px 20px;
+    font-size: 12px;
+    color: var(--charcoal);
+    opacity: 0.6;
+    text-align: right;
+  }
+
+  .room-container {
+    margin: 0 16px 16px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 32px var(--shadow);
+  }
+
+  .room-canvas {
+    width: 100%;
+    aspect-ratio: 1 / 0.85;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    transition: background 2s ease;
+  }
+
+  /* Room layers */
+  .room-floor {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 30%;
+    border-radius: 0 0 4px 4px;
+    transition: background 1s;
+  }
+  .room-wall {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 72%;
+    transition: background 1s;
+  }
+  .room-wall-left {
+    position: absolute;
+    top: 0; left: 0;
+    width: 6px; height: 72%;
+    background: rgba(0,0,0,0.06);
+  }
+  .room-wall-right {
+    position: absolute;
+    top: 0; right: 0;
+    width: 6px; height: 72%;
+    background: rgba(0,0,0,0.04);
+  }
+  .room-baseboard {
+    position: absolute;
+    bottom: 29%; left: 0; right: 0;
+    height: 6px;
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* Window */
+  .room-window {
+    position: absolute;
+    top: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26%;
+    aspect-ratio: 1/1.1;
+    border-radius: 6px 6px 0 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 3px;
+    padding: 4px;
+    background: rgba(255,255,255,0.25);
+    border: 3px solid rgba(255,255,255,0.5);
+    box-shadow: 0 0 20px rgba(255,220,120,0.3);
+    transition: box-shadow 2s;
+  }
+  .window-pane {
+    background: rgba(200,230,255,0.5);
+    border-radius: 2px;
+    transition: background 2s;
+  }
+
+  /* Furniture items */
+  .furniture {
+    position: absolute;
+    font-size: clamp(28px, 7vw, 48px);
+    line-height: 1;
+    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+    transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    cursor: default;
+    user-select: none;
+  }
+  .furniture.placed { animation: placeItem 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes placeItem {
+    0% { transform: translateY(-40px) scale(0); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* Dust effect */
+  .dust {
+    position: absolute;
+    font-size: 10px;
+    opacity: 0;
+    color: rgba(120,100,80,0.5);
+    animation: floatDust 3s infinite;
+    pointer-events: none;
+  }
+  @keyframes floatDust {
+    0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+    50% { opacity: 0.7; }
+    100% { opacity: 0; transform: translateY(-30px) rotate(360deg); }
+  }
+
+  /* Room overlay (messy filter) */
+  .room-messy-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(120,80,40,0.04) 0px,
+      transparent 8px
+    );
+    transition: opacity 1s;
+  }
+
+  /* Completion flash */
+  .room-flash {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(245,239,224,0.8) 0%, transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+    animation: none;
+  }
+  .room-flash.active {
+    animation: flashRoom 0.8s ease-out forwards;
+  }
+  @keyframes flashRoom {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Streak banner */
+  .streak-banner {
+    margin: 0 16px 16px;
+    background: linear-gradient(135deg, var(--terra) 0%, #D4855F 100%);
+    border-radius: 16px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--ivory);
+    box-shadow: 0 4px 16px rgba(201,123,90,0.35);
+  }
+  .streak-num { font-size: 28px; font-weight: 700; }
+  .streak-label { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .streak-dots { display: flex; gap: 6px; }
+  .streak-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transition: background 0.3s;
+  }
+  .streak-dot.done { background: var(--ivory); }
+
+  /* ── Routine Screen ── */
+  .section-header {
+    padding: 20px 20px 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--charcoal);
+  }
+  .section-sub {
+    font-size: 12px;
+    color: var(--terra);
+    font-weight: 600;
+  }
+
+  .category-scroll {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .category-scroll::-webkit-scrollbar { display: none; }
+  .cat-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 2px solid var(--ivory-dark);
+    background: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    color: var(--charcoal);
+  }
+  .cat-chip.active {
+    background: var(--terra);
+    border-color: var(--terra);
+    color: white;
+  }
+
+  .routines-list { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .routine-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 12px var(--shadow);
+    transition: transform 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+  }
+  .routine-card:active { transform: scale(0.98); }
+  .routine-card.done {
+    border-color: var(--sage);
+    background: linear-gradient(135deg, rgba(139,175,142,0.08) 0%, white 60%);
+  }
+  .routine-card.done::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(139,175,142,0.1) 0%, transparent 100%);
+  }
+
+  .routine-icon {
+    font-size: 32px;
+    min-width: 44px;
+    text-align: center;
+  }
+  .routine-info { flex: 1; min-width: 0; }
+  .routine-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--charcoal);
+  }
+  .routine-meta {
+    font-size: 12px;
+    color: rgba(61,53,48,0.55);
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .routine-reward {
+    font-size: 11px;
+    background: var(--ivory);
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    color: var(--terra);
+  }
+
+  .check-circle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ivory-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    flex-shrink: 0;
+  }
+  .routine-card.done .check-circle {
+    background: var(--sage);
+    border-color: var(--sage);
+    transform: scale(1.15);
+  }
+  .check-circle svg { opacity: 0; transition: opacity 0.2s; }
+  .routine-card.done .check-circle svg { opacity: 1; }
+
+  /* Add routine */
+  .add-routine-btn {
+    margin: 16px;
+    padding: 14px;
+    background: none;
+    border: 2.5px dashed var(--ivory-dark);
+    border-radius: 16px;
+    width: calc(100% - 32px);
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(61,53,48,0.45);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .add-routine-btn:hover {
+    border-color: var(--terra);
+    color: var(--terra);
+  }
+
+  /* ── Shop Screen ── */
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 0 16px;
+  }
+  .shop-item {
+    background: white;
+    border-radius: 16px;
+    padding: 16px 12px;
+    text-align: center;
+    box-shadow: 0 2px 12px var(--shadow);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .shop-item:active { transform: scale(0.97); }
+  .shop-item.owned {
+    border-color: var(--sage);
+    background: linear-gradient(135deg, rgba(139,175,142,0.06) 0%, white 100%);
+  }
+  .shop-item.locked { opacity: 0.65; }
+  .shop-item.featured { border-color: var(--terra); }
+
+  .shop-item-emoji { font-size: 44px; margin-bottom: 8px; display: block; }
+  .shop-item-name { font-size: 13px; font-weight: 600; color: var(--charcoal); }
+  .shop-item-price {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--terra);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .shop-item-price.free { color: var(--sage); }
+  .shop-item-price.owned-label { color: var(--sage); }
+
+  .shop-badge {
+    position: absolute;
+    top: 8px; right: 8px;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+  .badge-new { background: var(--terra); color: white; }
+  .badge-rare { background: var(--lavender); color: white; }
+  .badge-season { background: linear-gradient(135deg, #f6a623, #f05a28); color: white; }
+  .badge-owned { background: var(--sage); color: white; }
+
+  .shop-filter {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .shop-filter::-webkit-scrollbar { display: none; }
+
+  /* ── Stats Screen ── */
+  .stats-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 0 16px;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 18px 14px;
+    box-shadow: 0 2px 12px var(--shadow);
+    text-align: center;
+  }
+  .stat-card.wide { grid-column: 1/-1; }
+  .stat-icon { font-size: 28px; margin-bottom: 6px; }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--terra);
+    font-family: 'DM Serif Display', serif;
+  }
+  .stat-label { font-size: 12px; color: rgba(61,53,48,0.55); margin-top: 2px; }
+
+  .weekly-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    padding: 16px;
+    background: white;
+    margin: 12px 16px 0;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .week-day { text-align: center; }
+  .week-label { font-size: 10px; color: rgba(61,53,48,0.45); margin-bottom: 4px; }
+  .week-dot {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--ivory-dark);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+  }
+  .week-dot.done { background: var(--sage); }
+  .week-dot.today { box-shadow: 0 0 0 2.5px var(--terra); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--charcoal);
+    color: var(--ivory);
+    padding: 12px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+    max-width: calc(100vw - 40px);
+    text-align: center;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Reward popup ── */
+  .reward-popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(61,53,48,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(4px);
+  }
+  .reward-popup.show { opacity: 1; pointer-events: all; }
+  .reward-card {
+    background: var(--ivory);
+    border-radius: 24px;
+    padding: 36px 28px;
+    text-align: center;
+    max-width: 300px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    transform: scale(0.85);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .reward-popup.show .reward-card { transform: scale(1); }
+  .reward-big-emoji { font-size: 64px; margin-bottom: 12px; display: block; animation: bounce 0.6s ease infinite alternate; }
+  @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+  .reward-title { font-size: 22px; font-weight: 700; color: var(--charcoal); margin-bottom: 8px; }
+  .reward-msg { font-size: 14px; color: rgba(61,53,48,0.65); line-height: 1.6; }
+  .reward-btn {
+    margin-top: 24px;
+    padding: 14px 36px;
+    background: var(--terra);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 16px rgba(201,123,90,0.4);
+  }
+  .reward-btn:active { transform: scale(0.96); }
+
+  /* ── Add routine modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(61,53,48,0.6);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal-sheet {
+    background: var(--ivory);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
+  }
+  .modal-overlay.show .modal-sheet { transform: translateY(0); }
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--ivory-dark);
+    border-radius: 4px;
+    margin: 0 auto 20px;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 600; color: rgba(61,53,48,0.65); margin-bottom: 6px; display: block; }
+  .form-input, .form-select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid var(--ivory-dark);
+    border-radius: 12px;
+    font-size: 15px;
+    background: white;
+    color: var(--charcoal);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--terra); }
+  .emoji-picker {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+  .emoji-opt {
+    font-size: 24px;
+    text-align: center;
+    padding: 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .emoji-opt.selected { border-color: var(--terra); background: rgba(201,123,90,0.1); }
+  .modal-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--terra);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    box-shadow: 0 4px 16px rgba(201,123,90,0.35);
+  }
+
+  /* Confetti */
+  .confetti-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 998;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 8px; height: 8px;
+    top: -10px;
+    animation: confettiFall linear forwards;
+    opacity: 0.9;
+  }
+  @keyframes confettiFall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Progress bar */
+  .progress-bar-wrap {
+    margin: 0 16px 16px;
+    background: white;
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: rgba(61,53,48,0.55);
+    margin-bottom: 8px;
+  }
+  .progress-bar-bg {
+    height: 10px;
+    background: var(--ivory-dark);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sage) 0%, #6FAF74 100%);
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  /* Time indicator */
+  .time-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.5);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">ROOM<span>TINE</span></div>
+  <div class="coin-badge" id="coinBadge">
+    <span>🪙</span>
+    <span id="coinCount">120</span>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="switchTab('room')" id="tab-room">
+    <span class="icon">🏠</span>
+    <span>내 방</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('routines')" id="tab-routines">
+    <span class="icon">✅</span>
+    <span>루틴</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('shop')" id="tab-shop">
+    <span class="icon">🛍️</span>
+    <span>상점</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('stats')" id="tab-stats">
+    <span class="icon">📊</span>
+    <span>통계</span>
+  </button>
+</nav>
+
+<!-- ══════════ ROOM SCREEN ══════════ -->
+<div class="screen active" id="room-screen">
+  <div class="time-bar">
+    <span class="time-indicator" id="timeIndicator">🌅 아침</span>
+  </div>
+
+  <div class="room-container">
+    <div class="room-canvas" id="roomCanvas">
+      <div class="room-wall" id="roomWall"></div>
+      <div class="room-wall-left"></div>
+      <div class="room-wall-right"></div>
+      <div class="room-window" id="roomWindow">
+        <div class="window-pane" id="wp1"></div>
+        <div class="window-pane" id="wp2"></div>
+        <div class="window-pane" id="wp3"></div>
+        <div class="window-pane" id="wp4"></div>
+      </div>
+      <div class="room-floor" id="roomFloor"></div>
+      <div class="room-baseboard"></div>
+      <!-- Furniture placed here by JS -->
+      <div class="room-messy-overlay" id="messyOverlay"></div>
+      <div class="room-flash" id="roomFlash"></div>
+    </div>
+  </div>
+
+  <div class="streak-banner">
+    <div>
+      <div class="streak-num" id="streakNum">🔥 3일</div>
+      <div class="streak-label">연속 달성 중이에요!</div>
+    </div>
+    <div class="streak-dots" id="streakDots"></div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-labels">
+      <span>오늘의 루틴</span>
+      <span id="progressLabel">0/0 완료</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div style="padding: 0 16px; font-size: 13px; color: rgba(61,53,48,0.55); text-align: center;">
+    루틴을 완료하면 방이 꾸며져요 🏠
+  </div>
+</div>
+
+<!-- ══════════ ROUTINES SCREEN ══════════ -->
+<div class="screen" id="routines-screen">
+  <div class="section-header">
+    <div class="section-title">오늘의 루틴</div>
+    <div class="section-sub" id="todayDate"></div>
+  </div>
+
+  <div class="category-scroll" id="categoryFilter">
+    <button class="cat-chip active" onclick="filterCategory('전체')">전체</button>
+    <button class="cat-chip" onclick="filterCategory('운동')">🏃 운동</button>
+    <button class="cat-chip" onclick="filterCategory('수면')">😴 수면</button>
+    <button class="cat-chip" onclick="filterCategory('식습관')">🥗 식습관</button>
+    <button class="cat-chip" onclick="filterCategory('공부')">📚 공부</button>
+    <button class="cat-chip" onclick="filterCategory('마음챙김')">🧘 마음챙김</button>
+    <button class="cat-chip" onclick="filterCategory('취미')">🎨 취미</button>
+  </div>
+
+  <div class="routines-list" id="routinesList"></div>
+
+  <button class="add-routine-btn" onclick="openAddModal()">+ 새 루틴 추가하기</button>
+</div>
+
+<!-- ══════════ SHOP SCREEN ══════════ -->
+<div class="screen" id="shop-screen">
+  <div class="section-header">
+    <div class="section-title">🛍️ 코지 상점</div>
+    <div class="section-sub">보유: <span id="shopCoinCount">120</span> 🪙</div>
+  </div>
+
+  <div class="shop-filter" id="shopFilter">
+    <button class="cat-chip active" onclick="filterShop('전체')">전체</button>
+    <button class="cat-chip" onclick="filterShop('가구')">🪑 가구</button>
+    <button class="cat-chip" onclick="filterShop('소품')">🌿 소품</button>
+    <button class="cat-chip" onclick="filterShop('벽/바닥')">🎨 벽/바닥</button>
+    <button class="cat-chip" onclick="filterShop('시즌')">🌸 시즌</button>
+  </div>
+
+  <div class="shop-grid" id="shopGrid"></div>
+</div>
+
+<!-- ══════════ STATS SCREEN ══════════ -->
+<div class="screen" id="stats-screen">
+  <div class="section-header">
+    <div class="section-title">나의 기록</div>
+  </div>
+
+  <div class="stats-cards">
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-value" id="statStreak">3</div>
+      <div class="stat-label">연속 달성일</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-value" id="statTotal">28</div>
+      <div class="stat-label">총 완료 횟수</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🪙</div>
+      <div class="stat-value" id="statCoins">120</div>
+      <div class="stat-label">보유 코인</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏠</div>
+      <div class="stat-value" id="statItems">3</div>
+      <div class="stat-label">보유 아이템</div>
+    </div>
+  </div>
+
+  <div style="padding: 16px 16px 8px; font-size: 14px; font-weight: 600; color: var(--charcoal);">
+    이번 주 달성 현황
+  </div>
+  <div class="weekly-grid" id="weeklyGrid"></div>
+
+  <div style="padding: 16px 16px 8px; font-size: 14px; font-weight: 600; color: var(--charcoal); margin-top: 8px;">
+    카테고리별 달성률
+  </div>
+  <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px;" id="catStats"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Reward Popup -->
+<div class="reward-popup" id="rewardPopup">
+  <div class="reward-card">
+    <span class="reward-big-emoji" id="rewardEmoji">🎉</span>
+    <div class="reward-title" id="rewardTitle">보상 획득!</div>
+    <div class="reward-msg" id="rewardMsg"></div>
+    <button class="reward-btn" onclick="closeReward()">좋아요! 🏠</button>
+  </div>
+</div>
+
+<!-- Add Routine Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">새 루틴 추가</div>
+    <div class="form-group">
+      <label class="form-label">루틴 이름</label>
+      <input class="form-input" id="routineNameInput" placeholder="예: 아침 스트레칭 10분" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label class="form-label">카테고리</label>
+      <select class="form-select" id="routineCatInput">
+        <option value="운동">🏃 운동</option>
+        <option value="수면">😴 수면</option>
+        <option value="식습관">🥗 식습관</option>
+        <option value="공부">📚 공부</option>
+        <option value="마음챙김">🧘 마음챙김</option>
+        <option value="취미">🎨 취미</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">아이콘 선택</label>
+      <div class="emoji-picker" id="emojiPicker"></div>
+    </div>
+    <button class="modal-btn" onclick="addRoutine()">루틴 추가하기 🏠</button>
+    <button onclick="closeAddModal()" style="width:100%;margin-top:10px;padding:12px;background:none;border:none;font-size:14px;color:rgba(61,53,48,0.5);cursor:pointer;">취소</button>
+  </div>
+</div>
+
+<!-- Confetti -->
+<div class="confetti-container" id="confettiContainer"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+const state = {
+  coins: 120,
+  streak: 3,
+  totalDone: 28,
+  currentFilter: '전체',
+  shopFilter: '전체',
+  selectedEmoji: '🏃',
+  ownedItems: new Set(['bed', 'desk', 'plant']),
+  placedItems: ['bed', 'desk', 'plant'],
+  weeklyDone: [true, true, true, false, false, false, false], // Sun..Sat
+  catCounts: { '운동': 8, '수면': 5, '식습관': 6, '공부': 4, '마음챙김': 3, '취미': 2 },
+};
+
+const EMOJI_OPTIONS = ['🏃','🤸','🧘','📚','🎨','🍳','😴','🎵','💪','🌿','🐶','📝','☕','🧹','🚴','🏊'];
+
+// ── Routines data ──────────────────────────────────────────
+let routines = [
+  { id:1, name:'아침 스트레칭', cat:'운동', icon:'🤸', freq:'매일', reward:10, done:false },
+  { id:2, name:'물 2L 마시기', cat:'식습관', icon:'💧', freq:'매일', reward:10, done:false },
+  { id:3, name:'독서 30분', cat:'공부', icon:'📚', freq:'매일', reward:15, done:true },
+  { id:4, name:'명상 10분', cat:'마음챙김', icon:'🧘', freq:'매일', reward:10, done:false },
+  { id:5, name:'11시 취침', cat:'수면', icon:'😴', freq:'평일', reward:10, done:false },
+  { id:6, name:'스케치 연습', cat:'취미', icon:'✏️', freq:'주 3회', reward:15, done:false },
+];
+
+// ── Shop items ─────────────────────────────────────────────
+const shopItems = [
+  { id:'bed',    name:'코지 침대',    emoji:'🛏️', cat:'가구',  price:0,   badge:'owned' },
+  { id:'desk',   name:'우드 책상',    emoji:'🪑', cat:'가구',  price:0,   badge:'owned' },
+  { id:'sofa',   name:'리넨 소파',    emoji:'🛋️', cat:'가구',  price:80,  badge:'new'   },
+  { id:'shelf',  name:'책장',         emoji:'📚', cat:'가구',  price:60,  badge:null    },
+  { id:'plant',  name:'몬스테라',     emoji:'🌿', cat:'소품',  price:0,   badge:'owned' },
+  { id:'candle', name:'캔들 세트',    emoji:'🕯️', cat:'소품',  price:30,  badge:'new'   },
+  { id:'poster', name:'빈티지 포스터',emoji:'🖼️', cat:'소품',  price:40,  badge:null    },
+  { id:'dumbbell',name:'아령',        emoji:'🏋️', cat:'소품',  price:50,  badge:null    },
+  { id:'lamp',   name:'무드 조명',    emoji:'💡', cat:'소품',  price:45,  badge:null    },
+  { id:'wallA',  name:'아이보리 벽지',emoji:'🏷️', cat:'벽/바닥',price:70, badge:null   },
+  { id:'floorA', name:'우드 마루',    emoji:'🪵', cat:'벽/바닥',price:90, badge:null   },
+  { id:'xmas',   name:'크리스마스 트리',emoji:'🎄',cat:'시즌', price:100, badge:'season'},
+  { id:'sakura', name:'벚꽃 가랜드',  emoji:'🌸', cat:'시즌',  price:80,  badge:'season'},
+  { id:'bear',   name:'테디베어',     emoji:'🧸', cat:'소품',  price:35,  badge:'rare'  },
+];
+
+// ── Furniture layout ───────────────────────────────────────
+const furnitureLayout = {
+  bed:     { bottom:'28%', left:'5%',  fontSize:'clamp(36px,10vw,60px)' },
+  desk:    { bottom:'28%', right:'5%', fontSize:'clamp(28px,8vw,48px)'  },
+  sofa:    { bottom:'28%', left:'28%', fontSize:'clamp(32px,9vw,54px)'  },
+  shelf:   { bottom:'28%', right:'20%',fontSize:'clamp(28px,8vw,48px)'  },
+  plant:   { bottom:'28%', left:'42%', fontSize:'clamp(24px,6vw,40px)'  },
+  candle:  { bottom:'28%', right:'30%',fontSize:'clamp(18px,5vw,32px)'  },
+  poster:  { bottom:'55%', left:'15%', fontSize:'clamp(22px,6vw,36px)'  },
+  dumbbell:{ bottom:'28%', left:'18%', fontSize:'clamp(22px,6vw,36px)'  },
+  lamp:    { bottom:'28%', right:'42%',fontSize:'clamp(24px,6vw,36px)'  },
+  xmas:    { bottom:'28%', left:'50%', fontSize:'clamp(32px,9vw,54px)'  },
+  sakura:  { bottom:'65%', left:'30%', fontSize:'clamp(20px,5vw,32px)'  },
+  bear:    { bottom:'28%', right:'15%',fontSize:'clamp(20px,5vw,30px)'  },
+};
+
+// ── Room themes ────────────────────────────────────────────
+const wallpapers = {
+  wallA: { wall:'#EDE8DF', floor:'#C8B89A' }
+};
+
+// ── Time of day ────────────────────────────────────────────
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 10)  return { label:'🌅 아침', sky:'#FEE8CC', light:'rgba(255,220,120,0.25)' };
+  if (h >= 10 && h < 17) return { label:'☀️ 낮',   sky:'#D4EEFF', light:'rgba(200,235,255,0.3)'  };
+  if (h >= 17 && h < 20) return { label:'🌇 저녁', sky:'#FECDA0', light:'rgba(255,180,80,0.3)'   };
+  return                         { label:'🌙 밤',   sky:'#2A2D45', light:'rgba(100,120,200,0.2)'  };
+}
+
+// ── Render room ────────────────────────────────────────────
+function renderRoom() {
+  const tod = getTimeOfDay();
+  const canvas = document.getElementById('roomCanvas');
+  const wall = document.getElementById('roomWall');
+  const floor = document.getElementById('roomFloor');
+  const win = document.getElementById('roomWindow');
+
+  canvas.style.background = tod.sky;
+  wall.style.background = `linear-gradient(180deg, ${tod.sky} 0%, #EDE8DF 100%)`;
+  floor.style.background = 'linear-gradient(180deg, #C8B89A 0%, #B5A58A 100%)';
+  win.style.boxShadow = `0 0 30px ${tod.light}, inset 0 0 10px rgba(255,255,255,0.2)`;
+
+  document.getElementById('timeIndicator').textContent = tod.label;
+
+  // Night window panes
+  const paneColor = tod.label.includes('밤') ? 'rgba(60,80,160,0.6)' : 'rgba(200,230,255,0.5)';
+  document.querySelectorAll('.window-pane').forEach(p => p.style.background = paneColor);
+
+  // Render furniture
+  canvas.querySelectorAll('.furniture').forEach(f => f.remove());
+  state.placedItems.forEach(id => {
+    const item = shopItems.find(i => i.id === id);
+    const pos = furnitureLayout[id];
+    if (!item || !pos) return;
+    const el = document.createElement('div');
+    el.className = 'furniture placed';
+    el.textContent = item.emoji;
+    el.style.cssText = Object.entries(pos).map(([k,v]) => `${k.replace(/([A-Z])/g,'-$1').toLowerCase()}:${v}`).join(';');
+    canvas.insertBefore(el, document.getElementById('messyOverlay'));
+  });
+
+  // Messy overlay based on incomplete routines
+  const doneCount = routines.filter(r => r.done).length;
+  const ratio = doneCount / routines.length;
+  document.getElementById('messyOverlay').style.opacity = ratio < 0.5 ? (0.5 - ratio) * 0.8 : 0;
+
+  updateProgress();
+}
+
+// ── Render routines ────────────────────────────────────────
+function renderRoutines() {
+  const list = document.getElementById('routinesList');
+  const filtered = state.currentFilter === '전체'
+    ? routines
+    : routines.filter(r => r.cat === state.currentFilter);
+
+  list.innerHTML = filtered.map(r => `
+    <div class="routine-card ${r.done ? 'done' : ''}" onclick="toggleRoutine(${r.id})">
+      <div class="routine-icon">${r.icon}</div>
+      <div class="routine-info">
+        <div class="routine-name">${r.name}</div>
+        <div class="routine-meta">
+          <span>${getCatLabel(r.cat)}</span>
+          <span>·</span>
+          <span>${r.freq}</span>
+          <span class="routine-reward">+${r.reward}🪙</span>
+        </div>
+      </div>
+      <div class="check-circle">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+          <path d="M1 5L5 9L13 1" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getCatLabel(cat) {
+  const map = { '운동':'🏃 운동','수면':'😴 수면','식습관':'🥗 식습관','공부':'📚 공부','마음챙김':'🧘 마음챙김','취미':'🎨 취미' };
+  return map[cat] || cat;
+}
+
+function filterCategory(cat) {
+  state.currentFilter = cat;
+  document.querySelectorAll('#categoryFilter .cat-chip').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(cat) || (cat === '전체' && b.textContent === '전체'));
+  });
+  renderRoutines();
+}
+
+// ── Toggle routine ─────────────────────────────────────────
+function toggleRoutine(id) {
+  const r = routines.find(r => r.id === id);
+  if (!r) return;
+
+  if (!r.done) {
+    r.done = true;
+    state.coins += r.reward;
+    state.totalDone++;
+    state.catCounts[r.cat] = (state.catCounts[r.cat] || 0) + 1;
+
+    updateCoinDisplay();
+    showToast(`+${r.reward}🪙 획득! 오늘도 잘했어요 🏠`);
+    flashRoom();
+
+    const allDone = routines.every(r => r.done);
+    if (allDone) {
+      setTimeout(() => {
+        state.streak++;
+        state.coins += 30;
+        updateCoinDisplay();
+        checkStreakReward();
+        renderRoom();
+      }, 600);
+    }
+
+    // Check exercise milestone
+    if (r.cat === '운동' && state.catCounts['운동'] === 10) {
+      setTimeout(() => showReward('🏋️', '홈짐 세트 획득!', '운동 루틴 10회 달성으로\n아령 소품을 얻었어요!', () => {
+        state.ownedItems.add('dumbbell');
+        if (!state.placedItems.includes('dumbbell')) state.placedItems.push('dumbbell');
+        renderRoom();
+      }), 800);
+    }
+  } else {
+    r.done = false;
+    state.coins = Math.max(0, state.coins - r.reward);
+    updateCoinDisplay();
+  }
+
+  renderRoutines();
+  updateProgress();
+  renderRoom();
+  renderStats();
+}
+
+function checkStreakReward() {
+  if (state.streak === 3) {
+    showReward('🎊', '3일 연속 달성!', '보너스 코인 +30이 지급되었어요!\n랜덤 소품도 받아보세요 ✨');
+    fireConfetti();
+  } else if (state.streak === 7) {
+    state.ownedItems.add('sofa');
+    if (!state.placedItems.includes('sofa')) state.placedItems.push('sofa');
+    showReward('🛋️', '7일 연속 달성!', '리넨 소파를 획득했어요!\n방에 자동으로 배치됐어요 🏠');
+    fireConfetti();
+  } else if (state.streak === 30) {
+    showReward('🌸', '30일 달성!', '시즌 룸 테마가\n잠금해제 되었어요! ✨');
+    fireConfetti();
+  }
+  renderStreakBanner();
+}
+
+// ── Update progress ────────────────────────────────────────
+function updateProgress() {
+  const done = routines.filter(r => r.done).length;
+  const total = routines.length;
+  const pct = total ? (done / total) * 100 : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `${done}/${total} 완료`;
+}
+
+// ── Streak banner ──────────────────────────────────────────
+function renderStreakBanner() {
+  document.getElementById('streakNum').textContent = `🔥 ${state.streak}일`;
+  const dots = document.getElementById('streakDots');
+  dots.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const d = document.createElement('div');
+    d.className = 'streak-dot' + (i < (state.streak % 7 || 7) ? ' done' : '');
+    dots.appendChild(d);
+  }
+}
+
+// ── Shop ───────────────────────────────────────────────────
+function renderShop() {
+  const grid = document.getElementById('shopGrid');
+  const filtered = state.shopFilter === '전체'
+    ? shopItems
+    : shopItems.filter(i => i.cat === state.shopFilter);
+
+  grid.innerHTML = filtered.map(item => {
+    const owned = state.ownedItems.has(item.id);
+    const canAfford = state.coins >= item.price;
+    const badgeHTML = item.badge && !owned ? `<span class="shop-badge badge-${item.badge}">${getBadgeLabel(item.badge)}</span>` : '';
+    const ownedBadge = owned ? `<span class="shop-badge badge-owned">보유</span>` : '';
+    const priceHTML = owned
+      ? `<div class="shop-item-price owned-label">✓ 보유 중</div>`
+      : item.price === 0
+        ? `<div class="shop-item-price free">무료</div>`
+        : `<div class="shop-item-price ${!canAfford?'locked':''}">🪙 ${item.price}</div>`;
+
+    return `
+      <div class="shop-item ${owned?'owned':''} ${item.badge==='season'&&!owned?'featured':''}" onclick="buyItem('${item.id}')">
+        ${ownedBadge || badgeHTML}
+        <span class="shop-item-emoji">${item.emoji}</span>
+        <div class="shop-item-name">${item.name}</div>
+        ${priceHTML}
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('shopCoinCount').textContent = state.coins;
+}
+
+function getBadgeLabel(b) {
+  return { new:'NEW', rare:'희귀', season:'시즌', owned:'보유' }[b] || b;
+}
+
+function filterShop(cat) {
+  state.shopFilter = cat;
+  document.querySelectorAll('#shopFilter .cat-chip').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(cat) || (cat === '전체' && b.textContent === '전체'));
+  });
+  renderShop();
+}
+
+function buyItem(id) {
+  const item = shopItems.find(i => i.id === id);
+  if (!item) return;
+  if (state.ownedItems.has(id)) {
+    if (state.placedItems.includes(id)) {
+      state.placedItems = state.placedItems.filter(i => i !== id);
+      showToast(`${item.emoji} 방에서 치웠어요`);
+    } else {
+      if (furnitureLayout[id]) {
+        state.placedItems.push(id);
+        showToast(`${item.emoji} 방에 배치했어요! 🏠`);
+        flashRoom();
+      }
+    }
+    renderRoom();
+    renderShop();
+    return;
+  }
+  if (state.coins < item.price) {
+    showToast(`코인이 부족해요 🪙 (${item.price - state.coins} 더 필요)`);
+    return;
+  }
+  state.coins -= item.price;
+  state.ownedItems.add(id);
+  if (furnitureLayout[id]) state.placedItems.push(id);
+  updateCoinDisplay();
+  renderShop();
+  renderRoom();
+  renderStats();
+  showReward(item.emoji, `${item.name} 획득!`, `방에 배치되었어요 🏠\n오늘도 잘했어요!`);
+  fireConfetti();
+}
+
+// ── Stats ──────────────────────────────────────────────────
+function renderStats() {
+  document.getElementById('statStreak').textContent = state.streak;
+  document.getElementById('statTotal').textContent = state.totalDone;
+  document.getElementById('statCoins').textContent = state.coins;
+  document.getElementById('statItems').textContent = state.ownedItems.size;
+
+  // Weekly grid
+  const days = ['일','월','화','수','목','금','토'];
+  const today = new Date().getDay();
+  const grid = document.getElementById('weeklyGrid');
+  grid.innerHTML = days.map((d, i) => `
+    <div class="week-day">
+      <div class="week-label">${d}</div>
+      <div class="week-dot ${state.weeklyDone[i]?'done':''} ${i===today?'today':''}">
+        ${state.weeklyDone[i]?'✓':''}
+      </div>
+    </div>
+  `).join('');
+
+  // Category stats
+  const catStatEl = document.getElementById('catStats');
+  const cats = Object.entries(state.catCounts);
+  const maxVal = Math.max(...cats.map(([,v]) => v), 1);
+  catStatEl.innerHTML = cats.map(([cat, count]) => `
+    <div style="background:white;border-radius:12px;padding:12px 14px;box-shadow:0 2px 8px var(--shadow);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:600;">${getCatLabel(cat)}</span>
+        <span style="font-size:12px;color:var(--terra);font-weight:700;">${count}회</span>
+      </div>
+      <div style="height:8px;background:var(--ivory-dark);border-radius:8px;overflow:hidden;">
+        <div style="height:100%;width:${(count/maxVal)*100}%;background:linear-gradient(90deg,var(--sage),var(--terra));border-radius:8px;transition:width 0.6s;"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Weekly sync ────────────────────────────────────────────
+function syncWeeklyDone() {
+  const done = routines.every(r => r.done);
+  const today = new Date().getDay();
+  state.weeklyDone[today] = done;
+}
+
+// ── Add routine modal ──────────────────────────────────────
+function openAddModal() {
+  renderEmojiPicker();
+  document.getElementById('addModal').classList.add('show');
+  document.getElementById('routineNameInput').focus();
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('show');
+  document.getElementById('routineNameInput').value = '';
+}
+
+function renderEmojiPicker() {
+  const el = document.getElementById('emojiPicker');
+  el.innerHTML = EMOJI_OPTIONS.map(e => `
+    <div class="emoji-opt ${e===state.selectedEmoji?'selected':''}" onclick="selectEmoji('${e}')">${e}</div>
+  `).join('');
+}
+
+function selectEmoji(e) {
+  state.selectedEmoji = e;
+  renderEmojiPicker();
+}
+
+function addRoutine() {
+  const name = document.getElementById('routineNameInput').value.trim();
+  const cat = document.getElementById('routineCatInput').value;
+  if (!name) { showToast('루틴 이름을 입력해주세요!'); return; }
+  const newId = Math.max(...routines.map(r => r.id), 0) + 1;
+  routines.push({ id: newId, name, cat, icon: state.selectedEmoji, freq: '매일', reward: 10, done: false });
+  closeAddModal();
+  renderRoutines();
+  updateProgress();
+  showToast(`"${name}" 루틴이 추가됐어요 🏠`);
+}
+
+// ── Reward popup ───────────────────────────────────────────
+let rewardCallback = null;
+function showReward(emoji, title, msg, cb) {
+  document.getElementById('rewardEmoji').textContent = emoji;
+  document.getElementById('rewardTitle').textContent = title;
+  document.getElementById('rewardMsg').textContent = msg;
+  rewardCallback = cb || null;
+  document.getElementById('rewardPopup').classList.add('show');
+}
+function closeReward() {
+  document.getElementById('rewardPopup').classList.remove('show');
+  if (rewardCallback) { rewardCallback(); rewardCallback = null; }
+}
+
+// ── Toast ──────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Flash room ─────────────────────────────────────────────
+function flashRoom() {
+  const f = document.getElementById('roomFlash');
+  f.classList.remove('active');
+  void f.offsetWidth;
+  f.classList.add('active');
+}
+
+// ── Coin display ───────────────────────────────────────────
+function updateCoinDisplay() {
+  document.getElementById('coinCount').textContent = state.coins;
+  const badge = document.getElementById('coinBadge');
+  badge.classList.add('pop');
+  setTimeout(() => badge.classList.remove('pop'), 300);
+}
+
+// ── Confetti ───────────────────────────────────────────────
+function fireConfetti() {
+  const container = document.getElementById('confettiContainer');
+  const colors = ['#C97B5A','#8BAF8E','#B8A9C9','#F5EFE0','#F6A623'];
+  for (let i = 0; i < 60; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${0.8+Math.random()*1.5}s;
+      animation-delay:${Math.random()*0.3}s;
+    `;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }
+}
+
+// ── Tab switching ──────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(name + '-screen').classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+
+  if (name === 'shop') renderShop();
+  if (name === 'stats') { syncWeeklyDone(); renderStats(); }
+  if (name === 'room') renderRoom();
+}
+
+// ── Init ───────────────────────────────────────────────────
+function init() {
+  // Date
+  const now = new Date();
+  document.getElementById('todayDate').textContent =
+    `${now.getMonth()+1}월 ${now.getDate()}일`;
+
+  renderRoom();
+  renderStreakBanner();
+  renderRoutines();
+  updateProgress();
+
+  // Auto update time every minute
+  setInterval(() => { renderRoom(); }, 60_000);
+}
+
+init();
+</script>
+</body>
+</html>
